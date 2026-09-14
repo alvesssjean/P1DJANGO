@@ -1,0 +1,34 @@
+# Environment & Secrets
+.env
+.env.local
+*.env
+
+# Dependencies
+node_modules/
+venv/
+.venv/
+bin/
+obj/
+
+# Build & Output
+dist/
+build/
+target/
+*.o
+*.exe
+*.dll
+
+# IDEs & Editors
+.vscode/
+.idea/
+*.swp
+*.suo
+
+# System & OS Files
+.DS_Store
+Thumbs.db
+
+# Logs & Temporary Files
+*.log
+tmp/
+temp/
