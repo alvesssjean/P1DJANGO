@@ -1,37 +1,22 @@
-# Environment & Secrets
+# Arquivos de ambiente
 .env
-.env.local
-*.env
+.env.*
+!.env.example
 
-# Dependencies
-node_modules/
-venv/
-.venv/
-bin/
-obj/
-
-# Build & Output
-dist/
-build/
-target/
-*.o
-*.exe
-*.dll
-
-# IDEs & Editors
-.vscode/
-.idea/
-*.swp
-*.suo
-
-# System & OS Files
-.DS_Store
-Thumbs.db
-
-# Logs & Temporary Files
-*.log
-tmp/
-temp/
-
+# Banco de dados local (SQLite)
 *.sqlite3
 db.sqlite3
+
+# Python / Ambientes Virtuais
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.env/
+
+# IDEs e Editores
+.vscode/
+.idea/
+.ds_store
