@@ -32,3 +32,6 @@ Thumbs.db
 *.log
 tmp/
 temp/
+
+*.sqlite3
+db.sqlite3
