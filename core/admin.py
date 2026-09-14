@@ -1,5 +1,8 @@
 from django.contrib import admin
+from .models import Membro, Projeto, Tarefa, Subtarefa, Dependencia
 
-from .models import Tarefa
-
+admin.site.register(Membro)
+admin.site.register(Projeto)
 admin.site.register(Tarefa)
+admin.site.register(Subtarefa)
+admin.site.register(Dependencia)

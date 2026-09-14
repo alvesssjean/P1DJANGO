@@ -6,6 +6,14 @@
 
     <h1>Olá, {{ nome_usuario }}!</h1>
 
+    {% if messages %}
+        <ul style="list-style: none; padding: 0;">
+            {% for message in messages %}
+                <li style="color: red; font-weight: bold;">{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
     <hr>
     <h3>Nova Tarefa:</h3>
 
@@ -32,10 +40,20 @@
                 <strong style="color: orange;">(☐ Pendente)</strong> 
             {% endif %} 
 
+            {% if tarefa.projeto %}
+                <br><small>Projeto: {{ tarefa.projeto.nome }}</small>
+            {% endif %}
+
+            {% if not tarefa.concluida and tarefa.dependencias_pendentes %}
+                <br><small style="color: red;">
+                    Bloqueada por:
+                    {% for dep in tarefa.dependencias_pendentes %}
+                        {{ dep.depende_de.titulo }}{% if not forloop.last %}, {% endif %}
+                    {% endfor %}
+                </small>
+            {% endif %}
 
             <br>
-            
-            
             <small>Criada em: {{ tarefa.criada_em|date:"d/m/Y H:i" }}</small>
                 <div style="margin-top: 10px;">
                           <form action="{% url 'deletar_tarefa' tarefa.pk %}" method="post" style="display: inline;">
@@ -55,4 +73,4 @@
         <li>Você ainda não tem tarefas cadastradas.</li> 
         {% endfor %} 
     </ul>
-{% endblock %} 
+{% endblock %}

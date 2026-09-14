@@ -1,6 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse
-from .models import Tarefa
+from .models import Tarefa, Membro
+from django.contrib import messages
+from django.core.exceptions import ValidationError
 from .forms import TarefaForm
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
@@ -9,15 +11,14 @@ from django.contrib.auth.decorators import login_required
 @login_required
 def home(request):
     if request.method == 'POST':
-        form = TarefaForm(request.POST)
+        form = TarefaForm(request.POST, user=request.user)
         if form.is_valid():
             tarefa = form.save(commit=False)
             tarefa.user = request.user
             tarefa.save()
             return redirect('home')
-        
     else:
-        form = TarefaForm()
+        form = TarefaForm(user=request.user)
 
     todas_as_tarefas = Tarefa.objects.filter(user=request.user).order_by('-criada_em')
 
@@ -35,7 +36,10 @@ def concluir_tarefa(request, pk):
 
     if request.method == 'POST':
         tarefa.concluida = True
-        tarefa.save()
+        try:
+            tarefa.save()
+        except ValidationError as e:
+            messages.error(request, ' '.join(e.messages))
         return redirect('home')
 
 @login_required 
@@ -51,6 +55,7 @@ def register(request):
         form = UserCreationForm(request.POST)
         if form.is_valid():
             user = form.save()
+            Membro.objects.create(user=user)
             login(request, user)
             return redirect('home')
     else:
