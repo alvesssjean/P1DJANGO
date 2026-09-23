@@ -15,19 +15,66 @@
     {% endif %}
 
     <hr>
+    <h3>Novo Projeto:</h3>
+
+    <form method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="form_type" value="projeto">
+
+        {{ projeto_form.as_p }}
+
+        <button type="submit">Criar Projeto</button>
+    </form>
+
+    {% if projetos %}
+        <p><small>Seus projetos: {% for p in projetos %}{{ p.nome }}{% if not forloop.last %}, {% endif %}{% endfor %}</small></p>
+    {% endif %}
+
+    <hr>
     <h3>Nova Tarefa:</h3>
 
     <form method="POST">
         {% csrf_token %}
+        <input type="hidden" name="form_type" value="tarefa">
 
-        {{ form.as_p}}
+        {{ tarefa_form.as_p }}
 
         <button type="submit">Adicionar Tarefa</button>
     </form>
 
     <hr>
+    <h3>Nova Dependência entre Tarefas:</h3>
+
+    <form method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="form_type" value="dependencia">
+
+        {{ dependencia_form.as_p }}
+
+        <button type="submit">Criar Dependência</button>
+    </form>
+
+    <hr>
 
     <h2>Minha Lista de Tarefas (do Banco de Dados)</h2>
+
+    <form method="GET" action="{% url 'home' %}" style="margin-bottom: 15px;">
+        <input
+            type="text"
+            name="q"
+            placeholder="Buscar por título da tarefa..."
+            value="{{ request.GET.q }}"
+        >
+
+        <select name="status">
+            <option value="" {% if status_filtro == '' %}selected{% endif %}>Todas</option>
+            <option value="pendentes" {% if status_filtro == 'pendentes' %}selected{% endif %}>Pendentes</option>
+            <option value="concluidas" {% if status_filtro == 'concluidas' %}selected{% endif %}>Concluídas</option>
+        </select>
+
+        <button type="submit">Filtrar</button>
+        <a href="{% url 'home' %}">Limpar filtros</a>
+    </form>
 
     <ul style="list-style: none; padding: 0;"> 
         {% for tarefa in tarefas %} 
@@ -42,6 +89,10 @@
 
             {% if tarefa.projeto %}
                 <br><small>Projeto: {{ tarefa.projeto.nome }}</small>
+            {% endif %}
+
+            {% if tarefa.prazo %}
+                <br><small>Prazo: {{ tarefa.prazo|date:"d/m/Y" }}</small>
             {% endif %}
 
             {% if not tarefa.concluida and tarefa.dependencias_pendentes %}
@@ -69,8 +120,12 @@
                         {%  endif %}
                 </div>
         </li> 
-    {% empty %} 
-        <li>Você ainda não tem tarefas cadastradas.</li> 
+    {% empty %}
+        {% if request.GET.q or status_filtro %}
+            <li>Nenhuma tarefa encontrada com os filtros aplicados.</li>
+        {% else %}
+            <li>Você ainda não tem tarefas cadastradas.</li>
+        {% endif %}
         {% endfor %} 
     </ul>
 {% endblock %}
