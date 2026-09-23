@@ -24,10 +24,11 @@ class Tarefa(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     projeto = models.ForeignKey(
         Projeto, on_delete=models.CASCADE, related_name='tarefas',
-        null=True, blank=True  
+        null=True, blank=True
     )
     titulo = models.CharField(max_length=200)
     concluida = models.BooleanField(default=False)
+    prazo = models.DateField(null=True, blank=True)
     criada_em = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
