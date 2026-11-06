@@ -1,7 +1,7 @@
 from django.urls import path
-from .api_views import TarefaListCreate, TarefaDetail
+from . import api_views
 
 urlpatterns = [
-    path('tarefas/', TarefaListCreate.as_view()),
-    path('tarefas/<int:pk>/', TarefaDetail.as_view()),
+    path('tarefas/', api_views.TarefaListCreate.as_view(), name='api_tarefas'),
+    path('tarefas/<int:pk>/', api_views.TarefaDetail.as_view(), name='api_tarefa_detalhe'),
 ]

@@ -1,19 +1,42 @@
-from .models import Tarefa
 from rest_framework import serializers
-from django.core.exceptions import ValidationError as DjangoValidationError
+from .models import Tarefa, Projeto
+
 
 class TarefaSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = Tarefa
-        fields = ['id', 'titulo', 'concluida', 'prazo', 'criada_em', 'projeto']
-        read_only_fields = ['id', 'criada_em']
+        fields = ['id', 'titulo', 'concluida', 'prazo', 'projeto']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            self.fields['projeto'].queryset = Projeto.objects.filter(
+                dono__user=request.user
+            )
+
+    def validate_titulo(self, value):
+        if len(value.strip()) < 3:
+            raise serializers.ValidationError(
+                'O título deve ter pelo menos 3 caracteres.'
+            )
+        return value
 
     def validate(self, data):
-        instancia = self.instance or Tarefa(user=self.context['request'].user)
-        for campo, valor in data.items():
-            setattr(instancia, campo, valor)
-        try:
-            instancia.clean()
-        except DjangoValidationError as e:
-            raise serializers.ValidationError(e.messages)
+        projeto = data.get('projeto')
+        prazo = data.get('prazo')
+
+        # Mesma regra de forms.py (clean_prazo)
+        if projeto and prazo and prazo < projeto.criado_em.date():
+            raise serializers.ValidationError({
+                'prazo': 'O prazo não pode ser anterior à criação do projeto.'
+            })
+
+        # Mesma regra de Tarefa.clean(), mas em JSON
+        if data.get('concluida') and self.instance and not self.instance.pode_ser_concluida():
+            raise serializers.ValidationError({
+                'concluida': 'Existem dependências ainda não concluídas.'
+            })
+
         return data

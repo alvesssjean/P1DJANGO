@@ -1,5 +1,4 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import HttpResponse
 from .models import Tarefa, Membro, Projeto
 from django.contrib import messages
 from django.core.exceptions import ValidationError
@@ -7,6 +6,7 @@ from .forms import TarefaForm, ProjetoForm, DependenciaForm
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
 
 @login_required
 def home(request):
@@ -65,7 +65,6 @@ def home(request):
 
     context = {
         'nome_usuario': request.user.username,
-        'tecnologias': ['Autenticação', 'ForeignKey', 'Login'],
         'tarefas': todas_as_tarefas,
         'tarefa_form': tarefa_form,
         'projeto_form': projeto_form,
@@ -77,24 +76,22 @@ def home(request):
     return render(request, 'home.html', context)
 
 @login_required
+@require_POST
 def concluir_tarefa(request, pk):
     tarefa = get_object_or_404(Tarefa, pk=pk, user=request.user)
+    tarefa.concluida = True
+    try:
+        tarefa.save()
+    except ValidationError as e:
+        messages.error(request, ' '.join(e.messages))
+    return redirect('home')
 
-    if request.method == 'POST':
-        tarefa.concluida = True
-        try:
-            tarefa.save()
-        except ValidationError as e:
-            messages.error(request, ' '.join(e.messages))
-        return redirect('home')
-
-@login_required 
+@login_required
+@require_POST
 def deletar_tarefa(request, pk):
     tarefa = get_object_or_404(Tarefa, pk=pk, user=request.user)
-
-    if request.method == 'POST':
-        tarefa.delete()
-        return redirect('home')
+    tarefa.delete()
+    return redirect('home')
     
 def register(request):
     if request.method == 'POST':

@@ -41,10 +41,11 @@ class Tarefa(models.Model):
         return not self.dependencias_pendentes().exists()
 
     def clean(self):
-        if self.concluida and not self.pode_ser_concluida():
+        if self.concluida and self.pk and not self.pode_ser_concluida():
             raise ValidationError(
                 'Não é possível concluir esta tarefa: existem dependências ainda não concluídas.'
             )
+
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -68,9 +69,31 @@ class Dependencia(models.Model):
     class Meta:
         unique_together = ('tarefa', 'depende_de')
 
-    def clean(self):
-        if self.tarefa_id == self.depende_de_id:
-            raise ValidationError('Uma tarefa não pode depender dela mesma.')
-
     def __str__(self):
         return f'{self.tarefa} depende de {self.depende_de}'
+
+    def _criaria_ciclo(self):
+        visitados = set()
+        pilha = [self.depende_de]
+        while pilha:
+            atual = pilha.pop()
+            if atual.pk == self.tarefa_id:
+                return True
+            if atual.pk in visitados:
+                continue
+            visitados.add(atual.pk)
+            ids = Dependencia.objects.filter(tarefa=atual).values_list('depende_de_id', flat=True)
+            pilha.extend(Tarefa.objects.filter(pk__in=ids))
+        return False
+
+    def clean(self):
+        if self.tarefa_id is None or self.depende_de_id is None:
+            return
+        if self.tarefa_id == self.depende_de_id:
+            raise ValidationError('Uma tarefa não pode depender dela mesma.')
+        if self._criaria_ciclo():
+            raise ValidationError('Essa dependência criaria um ciclo.')
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
