@@ -82,10 +82,10 @@ copy .env.example .env
 2. O arquivo `.env` gerado já contém valores padrão para avaliação:
 
 ```env
-SECRET_KEY=sua_secret_key_aqui
-DEBUG=True
+DJANGO_SECRET_KEY=troque-esta-chave-por-uma-longa-e-aleatoria
+DJANGO_DEBUG=True
+DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost
 
-# Credenciais do Superusuário para testes
 DJANGO_SUPERUSER_USERNAME=admin
 DJANGO_SUPERUSER_EMAIL=admin@exemplo.com
 DJANGO_SUPERUSER_PASSWORD=admin123
