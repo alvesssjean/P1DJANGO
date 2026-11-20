@@ -1,5 +1,20 @@
 from rest_framework import serializers
-from .models import Tarefa, Projeto
+from .models import Tarefa, Projeto, Subtarefa, Dependencia
+
+
+def _tarefas_do_usuario(serializer):
+    request = serializer.context.get('request')
+    if request and request.user.is_authenticated:
+        return Tarefa.objects.filter(user=request.user)
+    return Tarefa.objects.none()
+
+
+class ProjetoSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Projeto
+        fields = ['id', 'nome', 'descricao', 'criado_em']
+        read_only_fields = ['criado_em']
 
 
 class TarefaSerializer(serializers.ModelSerializer):
@@ -23,20 +38,26 @@ class TarefaSerializer(serializers.ModelSerializer):
             )
         return value
 
-    def validate(self, data):
-        projeto = data.get('projeto')
-        prazo = data.get('prazo')
 
-        # Mesma regra de forms.py (clean_prazo)
-        if projeto and prazo and prazo < projeto.criado_em.date():
-            raise serializers.ValidationError({
-                'prazo': 'O prazo não pode ser anterior à criação do projeto.'
-            })
+class SubtarefaSerializer(serializers.ModelSerializer):
 
-        # Mesma regra de Tarefa.clean(), mas em JSON
-        if data.get('concluida') and self.instance and not self.instance.pode_ser_concluida():
-            raise serializers.ValidationError({
-                'concluida': 'Existem dependências ainda não concluídas.'
-            })
+    class Meta:
+        model = Subtarefa
+        fields = ['id', 'tarefa', 'titulo', 'concluida']
 
-        return data
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['tarefa'].queryset = _tarefas_do_usuario(self)
+
+
+class DependenciaSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Dependencia
+        fields = ['id', 'tarefa', 'depende_de']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        qs = _tarefas_do_usuario(self)
+        self.fields['tarefa'].queryset = qs
+        self.fields['depende_de'].queryset = qs
