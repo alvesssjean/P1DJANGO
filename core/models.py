@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 
 class Membro(models.Model):
@@ -41,6 +42,15 @@ class Tarefa(models.Model):
         return not self.dependencias_pendentes().exists()
 
     def clean(self):
+        if self.prazo and self.projeto_id:
+            criacao = timezone.localtime(self.projeto.criado_em).date()
+            if self.prazo < criacao:
+                raise ValidationError({
+                    'prazo': (
+                        f'O prazo não pode ser anterior à criação do projeto '
+                        f'"{self.projeto.nome}" ({criacao:%d/%m/%Y}).'
+                    )
+                })
         if self.concluida and self.pk and not self.pode_ser_concluida():
             raise ValidationError(
                 'Não é possível concluir esta tarefa: existem dependências ainda não concluídas.'
