@@ -5,6 +5,7 @@
 {% block content %} 
 
     <h1>Olá, {{ nome_usuario }}!</h1>
+    <p>Organização: <strong>{{ organizacao.nome }}</strong></p>
 
     {% if messages %}
         <ul style="list-style: none; padding: 0;">
@@ -27,7 +28,7 @@
     </form>
 
     {% if projetos %}
-        <p><small>Seus projetos: {% for p in projetos %}{{ p.nome }}{% if not forloop.last %}, {% endif %}{% endfor %}</small></p>
+        <p><small>Projetos da organização: {% for p in projetos %}{{ p.nome }}{% if not forloop.last %}, {% endif %}{% endfor %}</small></p>
     {% endif %}
 
     <hr>
@@ -56,7 +57,7 @@
 
     <hr>
 
-    <h2>Minha Lista de Tarefas (do Banco de Dados)</h2>
+    <h2>Tarefas da organização</h2>
 
     <form method="GET" action="{% url 'home' %}" style="margin-bottom: 15px;">
         <input

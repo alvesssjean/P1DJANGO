@@ -21,12 +21,13 @@ class TarefaForm(forms.ModelForm):
             'prazo': forms.DateInput(attrs={'type': 'date'}),
         }
 
-    def __init__(self, *args, user=None, **kwargs):
+    def __init__(self, *args, org=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['projeto'].required = False
         self.fields['prazo'].required = False
-        if user is not None:
-            self.fields['projeto'].queryset = Projeto.objects.filter(dono__user=user)
+        self.fields['projeto'].queryset = (
+            Projeto.objects.filter(organizacao=org) if org else Projeto.objects.none()
+        )
 
 
 class DependenciaForm(forms.ModelForm):
@@ -39,9 +40,8 @@ class DependenciaForm(forms.ModelForm):
             'depende_de': 'Depende de',
         }
 
-    def __init__(self, *args, user=None, **kwargs):
+    def __init__(self, *args, org=None, **kwargs):
         super().__init__(*args, **kwargs)
-        if user is not None:
-            tarefas_do_usuario = Tarefa.objects.filter(user=user)
-            self.fields['tarefa'].queryset = tarefas_do_usuario
-            self.fields['depende_de'].queryset = tarefas_do_usuario
+        tarefas = Tarefa.objects.filter(organizacao=org) if org else Tarefa.objects.none()
+        self.fields['tarefa'].queryset = tarefas
+        self.fields['depende_de'].queryset = tarefas

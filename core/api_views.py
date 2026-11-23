@@ -1,14 +1,13 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import generics
 from rest_framework.exceptions import ValidationError as DRFValidationError
-from .tenancy import org_atual
 
-
-from .models import Tarefa, Projeto, Subtarefa, Dependencia, Membro
+from .models import Tarefa, Projeto, Subtarefa, Dependencia
 from .serializers import (
     TarefaSerializer, ProjetoSerializer,
     SubtarefaSerializer, DependenciaSerializer,
 )
+from .tenancy import org_atual
 
 
 def _erro_drf(e):
@@ -18,9 +17,10 @@ def _erro_drf(e):
 
 
 class TratarErrosMixin:
-   
+    """Converte ValidationError do model (lançado no save) em resposta 400."""
+
     def extras_criacao(self):
-        return {}
+        return {'organizacao': org_atual(self.request)}
 
     def perform_create(self, serializer):
         try:
@@ -40,17 +40,17 @@ class TarefaListCreate(TratarErrosMixin, generics.ListCreateAPIView):
     serializer_class = TarefaSerializer
 
     def get_queryset(self):
-        return Tarefa.objects.filter(user=self.request.user).order_by('-criada_em')
+        return Tarefa.objects.filter(organizacao=org_atual(self.request)).order_by('-criada_em')
 
     def extras_criacao(self):
-        return {'user': self.request.user, 'organizacao': org_atual(self.request)}
+        return {**super().extras_criacao(), 'user': self.request.user}
 
 
 class TarefaDetail(TratarErrosMixin, generics.RetrieveUpdateDestroyAPIView):
     serializer_class = TarefaSerializer
 
     def get_queryset(self):
-        return Tarefa.objects.filter(user=self.request.user)
+        return Tarefa.objects.filter(organizacao=org_atual(self.request))
 
 
 # ---- Projetos ----
@@ -58,18 +58,17 @@ class ProjetoListCreate(TratarErrosMixin, generics.ListCreateAPIView):
     serializer_class = ProjetoSerializer
 
     def get_queryset(self):
-        return Projeto.objects.filter(dono__user=self.request.user).order_by('-criado_em')
+        return Projeto.objects.filter(organizacao=org_atual(self.request)).order_by('-criado_em')
 
     def extras_criacao(self):
-        org = org_atual(self.request)
-        return {'dono': self.request.user.membro, 'organizacao': org}
+        return {**super().extras_criacao(), 'dono': self.request.user.perfil}
 
 
 class ProjetoDetail(TratarErrosMixin, generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ProjetoSerializer
 
     def get_queryset(self):
-        return Projeto.objects.filter(dono__user=self.request.user)
+        return Projeto.objects.filter(organizacao=org_atual(self.request))
 
 
 # ---- Subtarefas ----
@@ -77,31 +76,26 @@ class SubtarefaListCreate(TratarErrosMixin, generics.ListCreateAPIView):
     serializer_class = SubtarefaSerializer
 
     def get_queryset(self):
-        return Subtarefa.objects.filter(tarefa__user=self.request.user).order_by('-criada_em')
-
-    def extras_criacao(self):
-        return {'organizacao': org_atual(self.request)}
-
+        return Subtarefa.objects.filter(organizacao=org_atual(self.request)).order_by('-criada_em')
 
 
 class SubtarefaDetail(TratarErrosMixin, generics.RetrieveUpdateDestroyAPIView):
     serializer_class = SubtarefaSerializer
 
     def get_queryset(self):
-        return Subtarefa.objects.filter(tarefa__user=self.request.user)
+        return Subtarefa.objects.filter(organizacao=org_atual(self.request))
 
+
+# ---- Dependências (sem edição: apaga e cria de novo) ----
 class DependenciaListCreate(TratarErrosMixin, generics.ListCreateAPIView):
     serializer_class = DependenciaSerializer
 
     def get_queryset(self):
-        return Dependencia.objects.filter(tarefa__user=self.request.user)
-
-    def extras_criacao(self):
-        return {'organizacao': org_atual(self.request)}
+        return Dependencia.objects.filter(organizacao=org_atual(self.request))
 
 
 class DependenciaDetail(generics.RetrieveDestroyAPIView):
     serializer_class = DependenciaSerializer
 
     def get_queryset(self):
-        return Dependencia.objects.filter(tarefa__user=self.request.user)
+        return Dependencia.objects.filter(organizacao=org_atual(self.request))

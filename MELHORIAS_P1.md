@@ -15,6 +15,7 @@
 ## 4. Modelagem de propriedade duplicada
 - **Problema:** `Tarefa` tem `user` (FK para `User`), e `Projeto` tem `dono` (FK para `Membro`). Há dois conceitos de dono. Além disso, `Tarefa.user` e `Projeto.dono` podem apontar para pessoas diferentes.
 - **Correção:** deixar apenas um vínculo de responsabilidade, ou documentar a diferença entre "criador" e "responsável". Esse ponto também prepara a P2 (multi-organização).
+**Status:** resolvido na Aula 14. A posse dos dados é da Organizacao; Tarefa.user e Projeto.dono passam a significar "criador".
 
 ## 5. Código e configuração inconsistentes
 - **Problema:** `views.py` tem `tecnologias` hardcoded no contexto e `HttpResponse` importado sem uso. O `requirements.txt` parece estar em UTF-16 (cada letra aparece separada por espaço), e o `settings.py` foi gerado pelo Django 5.2.15, enquanto o `requirements.txt` lista Django 6.1.2.

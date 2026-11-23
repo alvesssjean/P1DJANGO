@@ -4,8 +4,8 @@ Projeto desenvolvido em **Python/Django** para a entrega da fase **P1 (MVP Funci
 
 ## 📌 Funcionalidades (P1)
 
-- **Cadastro e autenticação de usuários**, com criação automática de um `Membro` vinculado ao `User` do Django.
-- **Gestão de Projetos**, associados a um membro responsável (`dono`).
+- **Cadastro e autenticação de usuários**, com criação automática de um `Perfil` vinculado ao `User` do Django.
+- **Gestão de Projetos**, associados a um Perfil responsável (`dono`).
 - **Gestão de Tarefas**, vinculadas opcionalmente a um projeto e sempre a um usuário.
 - **Subtarefas**, vinculadas a uma tarefa principal.
 - **Dependências entre tarefas**: uma tarefa pode depender da conclusão de outra.
@@ -15,8 +15,8 @@ Projeto desenvolvido em **Python/Django** para a entrega da fase **P1 (MVP Funci
 
 | Entidade | Relacionamento |
 |---|---|
-| `Membro` | 1–1 com `User` (auth do Django) |
-| `Projeto` | Pertence a um `Membro` (dono) |
+| `Perfil` | 1–1 com `User` (auth do Django) |
+| `Projeto` | Pertence a um `Perfil` (dono) |
 | `Tarefa` | Pertence a um `User` e, opcionalmente, a um `Projeto` |
 | `Subtarefa` | Pertence a uma `Tarefa` |
 | `Dependência` | Relaciona uma `Tarefa` a outra `Tarefa` da qual ela depende |

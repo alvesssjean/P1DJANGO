@@ -1,14 +1,16 @@
 from rest_framework import serializers
 from .models import Tarefa, Projeto, Subtarefa, Dependencia
-import copy
-from django.core.exceptions import ValidationError as DjangoValidationError
-from .tenancy import org_atual
+from .tenancy import org_do_usuario
 
-def _tarefas_do_usuario(serializer):
+
+def _org(serializer):
     request = serializer.context.get('request')
-    if request and request.user.is_authenticated:
-        return Tarefa.objects.filter(user=request.user)
-    return Tarefa.objects.none()
+    return org_do_usuario(request.user) if request else None
+
+
+def _tarefas_da_org(serializer):
+    org = _org(serializer)
+    return Tarefa.objects.filter(organizacao=org) if org else Tarefa.objects.none()
 
 
 class ProjetoSerializer(serializers.ModelSerializer):
@@ -18,21 +20,6 @@ class ProjetoSerializer(serializers.ModelSerializer):
         fields = ['id', 'nome', 'descricao', 'criado_em']
         read_only_fields = ['criado_em']
 
-def _tem_ciclo(tarefa, depende_de):
-    """True se criar 'tarefa depende de depende_de' fecharia um ciclo."""
-    if tarefa.pk == depende_de.pk:
-        return True
-    visitados = set()
-    pilha = [depende_de]
-    while pilha:
-        atual = pilha.pop()
-        if atual.pk == tarefa.pk:
-            return True
-        if atual.pk in visitados:
-            continue
-        visitados.add(atual.pk)
-        pilha.extend(d.depende_de for d in atual.dependencias.select_related('depende_de'))
-    return False
 
 class TarefaSerializer(serializers.ModelSerializer):
 
@@ -42,11 +29,10 @@ class TarefaSerializer(serializers.ModelSerializer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        request = self.context.get('request')
-        if request and request.user.is_authenticated:
-            self.fields['projeto'].queryset = Projeto.objects.filter(
-                dono__user=request.user
-            )
+        org = _org(self)
+        self.fields['projeto'].queryset = (
+            Projeto.objects.filter(organizacao=org) if org else Projeto.objects.none()
+        )
 
     def validate_titulo(self, value):
         if len(value.strip()) < 3:
@@ -55,24 +41,8 @@ class TarefaSerializer(serializers.ModelSerializer):
             )
         return value
 
-    def validate(self, data):
-        request = self.context['request']
-
-        # Monta a tarefa com os novos valores para reaproveitar o clean() do modelo
-        tarefa = copy.copy(self.instance) if self.instance else Tarefa(user=request.user)
-        for attr, valor in data.items():
-            setattr(tarefa, attr, valor)
-        tarefa.organizacao = org_atual(request)
-        try:
-            tarefa.clean()
-        except DjangoValidationError as e:
-            raise serializers.ValidationError(e.message_dict)
-
-        if data.get('concluida') and self.instance and not self.instance.pode_ser_concluida():
-            raise serializers.ValidationError(
-                {'concluida': 'Há dependências pendentes.'}
-            )
-        return data
+    # Prazo, projeto da mesma organização e bloqueio por dependência
+    # ficam em Tarefa.clean(): a API herda via full_clean() no save().
 
 
 class SubtarefaSerializer(serializers.ModelSerializer):
@@ -83,7 +53,8 @@ class SubtarefaSerializer(serializers.ModelSerializer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['tarefa'].queryset = _tarefas_do_usuario(self)
+        self.fields['tarefa'].queryset = _tarefas_da_org(self)
+
 
 class DependenciaSerializer(serializers.ModelSerializer):
 
@@ -93,13 +64,8 @@ class DependenciaSerializer(serializers.ModelSerializer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        qs = _tarefas_do_usuario(self)
-        self.fields['tarefa'].queryset = qs
-        self.fields['depende_de'].queryset = qs
+        tarefas = _tarefas_da_org(self)
+        self.fields['tarefa'].queryset = tarefas
+        self.fields['depende_de'].queryset = tarefas
 
-    def validate(self, data):
-        if _tem_ciclo(data['tarefa'], data['depende_de']):
-            raise serializers.ValidationError(
-                'Essa dependência criaria um ciclo entre tarefas.'
-            )
-        return data
+    # Auto-dependência, ciclo e mesma organização: Dependencia.clean().

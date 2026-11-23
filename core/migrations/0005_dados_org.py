@@ -12,17 +12,18 @@ def preencher_organizacao_padrao(apps, schema_editor):
 
     org, _ = Organizacao.objects.get_or_create(nome='Organização padrão')
 
+    # Usuários sem vínculo (inclusive superusuário) recebem Membro na org padrão
+    for user in User.objects.filter(membro__isnull=True):
+        Membro.objects.create(user=user, organizacao=org)
+
     for modelo in (Membro, Projeto, Tarefa, Subtarefa, Dependencia):
         modelo.objects.filter(organizacao__isnull=True).update(organizacao=org)
 
-    # Usuários sem vínculo recebem o Membro na organização padrão
-    for user in User.objects.filter(membro__isnull=True):
-        Membro.objects.create(user=user, organizacao=org)
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0005_org_obrigatoria'),
+        ('core', '0004_organizacao_membro'),
     ]
 
     operations = [
