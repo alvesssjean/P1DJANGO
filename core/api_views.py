@@ -1,6 +1,8 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import generics
 from rest_framework.exceptions import ValidationError as DRFValidationError
+from .tenancy import org_atual
+
 
 from .models import Tarefa, Projeto, Subtarefa, Dependencia, Membro
 from .serializers import (
@@ -41,7 +43,7 @@ class TarefaListCreate(TratarErrosMixin, generics.ListCreateAPIView):
         return Tarefa.objects.filter(user=self.request.user).order_by('-criada_em')
 
     def extras_criacao(self):
-        return {'user': self.request.user}
+        return {'user': self.request.user, 'organizacao': org_atual(self.request)}
 
 
 class TarefaDetail(TratarErrosMixin, generics.RetrieveUpdateDestroyAPIView):
@@ -59,8 +61,8 @@ class ProjetoListCreate(TratarErrosMixin, generics.ListCreateAPIView):
         return Projeto.objects.filter(dono__user=self.request.user).order_by('-criado_em')
 
     def extras_criacao(self):
-        membro, _ = Membro.objects.get_or_create(user=self.request.user)
-        return {'dono': membro}
+        org = org_atual(self.request)
+        return {'dono': self.request.user.membro, 'organizacao': org}
 
 
 class ProjetoDetail(TratarErrosMixin, generics.RetrieveUpdateDestroyAPIView):
@@ -77,6 +79,10 @@ class SubtarefaListCreate(TratarErrosMixin, generics.ListCreateAPIView):
     def get_queryset(self):
         return Subtarefa.objects.filter(tarefa__user=self.request.user).order_by('-criada_em')
 
+    def extras_criacao(self):
+        return {'organizacao': org_atual(self.request)}
+
+
 
 class SubtarefaDetail(TratarErrosMixin, generics.RetrieveUpdateDestroyAPIView):
     serializer_class = SubtarefaSerializer
@@ -84,12 +90,14 @@ class SubtarefaDetail(TratarErrosMixin, generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         return Subtarefa.objects.filter(tarefa__user=self.request.user)
 
-
 class DependenciaListCreate(TratarErrosMixin, generics.ListCreateAPIView):
     serializer_class = DependenciaSerializer
 
     def get_queryset(self):
         return Dependencia.objects.filter(tarefa__user=self.request.user)
+
+    def extras_criacao(self):
+        return {'organizacao': org_atual(self.request)}
 
 
 class DependenciaDetail(generics.RetrieveDestroyAPIView):

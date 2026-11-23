@@ -5,16 +5,21 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
-from .models import Membro, Projeto, Tarefa, Dependencia
+from .models import Membro, Organizacao, Projeto, Tarefa, Dependencia
 
 
 class ApiTests(APITestCase):
 
     def setUp(self):
+        self.org = Organizacao.objects.create(nome='Org Teste')
         self.ana = User.objects.create_user('ana', password='senha12345')
         self.beto = User.objects.create_user('beto', password='senha12345')
-        self.t_ana = Tarefa.objects.create(user=self.ana, titulo='Tarefa da Ana')
-        self.t_beto = Tarefa.objects.create(user=self.beto, titulo='Tarefa do Beto')
+        Membro.objects.create(user=self.ana, organizacao=self.org)
+        Membro.objects.create(user=self.beto, organizacao=self.org)
+        self.t_ana = Tarefa.objects.create(
+            user=self.ana, organizacao=self.org, titulo='Tarefa da Ana')
+        self.t_beto = Tarefa.objects.create(
+            user=self.beto, organizacao=self.org, titulo='Tarefa do Beto')
 
     def test_sem_login_nao_acessa(self):
         r = self.client.get(reverse('api_tarefas'))
@@ -43,8 +48,8 @@ class ApiTests(APITestCase):
         self.assertEqual(r.status_code, 400)
 
     def test_prazo_anterior_ao_projeto_retorna_400(self):
-        membro = Membro.objects.create(user=self.ana)
-        projeto = Projeto.objects.create(nome='P', dono=membro)
+        membro = Membro.objects.get(user=self.ana)
+        projeto = Projeto.objects.create(nome='P', dono=membro, organizacao=self.org)
         ontem = timezone.localdate() - timedelta(days=1)
         self.client.force_authenticate(self.ana)
         r = self.client.post(reverse('api_tarefas'), {
@@ -54,8 +59,10 @@ class ApiTests(APITestCase):
         self.assertIn('prazo', r.json())
 
     def test_nao_conclui_com_dependencia_pendente(self):
-        outra = Tarefa.objects.create(user=self.ana, titulo='Outra tarefa')
-        Dependencia.objects.create(tarefa=outra, depende_de=self.t_ana)
+        outra = Tarefa.objects.create(
+            user=self.ana, organizacao=self.org, titulo='Outra tarefa')
+        Dependencia.objects.create(
+            tarefa=outra, depende_de=self.t_ana, organizacao=self.org)
         self.client.force_authenticate(self.ana)
         r = self.client.patch(
             reverse('api_tarefa_detalhe', args=[outra.pk]), {'concluida': True}, format='json'
@@ -63,8 +70,10 @@ class ApiTests(APITestCase):
         self.assertEqual(r.status_code, 400)
 
     def test_ciclo_de_dependencia_retorna_400(self):
-        outra = Tarefa.objects.create(user=self.ana, titulo='Outra tarefa')
-        Dependencia.objects.create(tarefa=outra, depende_de=self.t_ana)
+        outra = Tarefa.objects.create(
+            user=self.ana, organizacao=self.org, titulo='Outra tarefa')
+        Dependencia.objects.create(
+            tarefa=outra, depende_de=self.t_ana, organizacao=self.org)
         self.client.force_authenticate(self.ana)
         r = self.client.post(reverse('api_dependencias'), {
             'tarefa': self.t_ana.pk, 'depende_de': outra.pk,

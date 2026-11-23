@@ -13,20 +13,11 @@ class Organizacao(models.Model):
 
 
 class DaOrganizacao(models.Model):
-    # TEMPORÁRIO (passo 1 da migração). Será removido no Bloco 3.
-    organizacao = models.ForeignKey(
-        Organizacao, on_delete=models.PROTECT, null=True)
+    organizacao = models.ForeignKey(Organizacao, on_delete=models.PROTECT)
 
     class Meta:
         abstract = True
 
-
-class Perfil(models.Model):
-    usuario = models.OneToOneField(User, on_delete=models.CASCADE)
-    organizacao = models.ForeignKey(Organizacao, on_delete=models.PROTECT)
-
-    def __str__(self):
-        return f'{self.usuario.username} ({self.organizacao})'
 
 
 class Membro(DaOrganizacao):
