@@ -96,10 +96,10 @@
                 <br><small>Prazo: {{ tarefa.prazo|date:"d/m/Y" }}</small>
             {% endif %}
 
-            {% if not tarefa.concluida and tarefa.dependencias_pendentes %}
+            {% if not tarefa.concluida and tarefa.dependencias_abertas %}
                 <br><small style="color: red;">
                     Bloqueada por:
-                    {% for dep in tarefa.dependencias_pendentes %}
+                    {% for dep in tarefa.dependencias_abertas %}
                         {{ dep.depende_de.titulo }}{% if not forloop.last %}, {% endif %}
                     {% endfor %}
                 </small>

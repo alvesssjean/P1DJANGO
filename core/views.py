@@ -7,14 +7,14 @@ from django.db import transaction
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_POST
 from .forms import TarefaForm, ProjetoForm, DependenciaForm, PeriodoForm, filtrar_periodo
-from .models import Tarefa, Projeto, Organizacao, Perfil
+from .models import Tarefa, Projeto, Organizacao, Perfil, Dependencia
 from .tenancy import org_atual
 import csv
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.utils import timezone
 from .dashboard import base_queryset, metricas, situacao
 from .permissoes import papel_requerido
-
+from django.db.models import Prefetch
 
 @login_required
 def home(request):
@@ -51,7 +51,16 @@ def home(request):
             dependencia.save()
             return redirect('home')
 
-    tarefas_query = Tarefa.objects.filter(organizacao=org)
+    tarefas_query = (
+        Tarefa.objects.filter(organizacao=org)
+        .select_related('projeto')
+        .prefetch_related(Prefetch(
+            'dependencias',
+            queryset=Dependencia.objects.filter(depende_de__concluida=False)
+                                        .select_related('depende_de'),
+            to_attr='dependencias_abertas',
+        ))
+    )
 
     # Busca e filtro na listagem
     termo_busca = request.GET.get('q', '')

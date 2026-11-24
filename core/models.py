@@ -59,6 +59,11 @@ class Tarefa(DaOrganizacao):
     concluida = models.BooleanField(default=False)
     prazo = models.DateField(null=True, blank=True)
     criada_em = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['organizacao', 'criada_em'], name='tarefa_org_criada_idx'),
+        ]    
 
     def __str__(self):
         return self.titulo
