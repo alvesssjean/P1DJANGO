@@ -1,4 +1,9 @@
 from datetime import timedelta
+import csv
+import io
+
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
@@ -10,9 +15,9 @@ from rest_framework.test import APITestCase
 from .models import Organizacao, Perfil, Projeto, Tarefa, Subtarefa, Dependencia
 
 
-def criar_usuario(nome, org):
+def criar_usuario(nome, org, papel=Perfil.OPERADOR):
     usuario = User.objects.create_user(nome, password='senha12345')
-    Perfil.objects.create(usuario=usuario, organizacao=org)
+    Perfil.objects.create(usuario=usuario, organizacao=org, papel=papel)
     return usuario
 
 
@@ -250,3 +255,194 @@ class WebIsolamentoTests(DadosBase, TestCase):
         self.assertEqual(r.status_code, 302)
         perfil = Perfil.objects.get(usuario__username='novo')
         self.assertEqual(perfil.organizacao.nome, 'Organização de novo')
+
+class DashboardBase(TestCase):
+    """Org A: 3 tarefas (1 concluída, 1 atrasada, 1 no prazo). Org B: 5 tarefas."""
+
+    def setUp(self):
+        self.org_a = Organizacao.objects.create(nome='Org A')
+        self.org_b = Organizacao.objects.create(nome='Org B')
+        self.ana = criar_usuario('ana', self.org_a, Perfil.ADMIN)
+        self.otavio = criar_usuario('otavio', self.org_a, Perfil.OPERADOR)
+        self.beto = criar_usuario('beto', self.org_b, Perfil.ADMIN)
+        ontem = timezone.localdate() - timedelta(days=1)
+        self.projeto = Projeto.objects.create(
+            nome='Projeto Alfa', dono=self.ana.perfil, organizacao=self.org_a)
+        self.concluida = Tarefa.objects.create(
+            user=self.ana, organizacao=self.org_a, titulo='A concluída',
+            concluida=True, projeto=self.projeto)
+        Tarefa.objects.create(
+            user=self.ana, organizacao=self.org_a, titulo='A atrasada', prazo=ontem)
+        Tarefa.objects.create(user=self.ana, organizacao=self.org_a, titulo='A no prazo')
+        for i in range(5):
+            Tarefa.objects.create(
+                user=self.beto, organizacao=self.org_b, titulo=f'B tarefa {i}')
+
+    def entrar(self, nome):
+        self.assertTrue(self.client.login(username=nome, password='senha12345'))
+
+
+class DashboardTests(DashboardBase):
+
+    def test_total_so_da_organizacao(self):
+        self.entrar('ana')
+        r = self.client.get(reverse('dashboard'))
+        self.assertEqual(r.context['kpis']['total'], 3)
+        self.entrar('beto')
+        r = self.client.get(reverse('dashboard'))
+        self.assertEqual(r.context['kpis']['total'], 5)
+
+    def test_kpis_detalhados(self):
+        self.entrar('ana')
+        k = self.client.get(reverse('dashboard')).context['kpis']
+        self.assertEqual(
+            (k['concluidas'], k['pendentes'], k['atrasadas'], k['responsaveis']),
+            (1, 2, 1, 1))
+
+    def test_filtro_de_periodo(self):
+        Tarefa.objects.filter(pk=self.concluida.pk).update(
+            criada_em=timezone.now() - timedelta(days=60))
+        corte = (timezone.localdate() - timedelta(days=30)).isoformat()
+        self.entrar('ana')
+        r = self.client.get(reverse('dashboard'), {'inicio': corte})
+        self.assertEqual(r.context['kpis']['total'], 2)
+        r = self.client.get(reverse('dashboard'), {'fim': corte})
+        self.assertEqual(r.context['kpis']['total'], 1)
+
+    def test_data_invalida_nao_quebra(self):
+        self.entrar('ana')
+        r = self.client.get(reverse('dashboard'), {'inicio': 'abc'})
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.context['form'].errors)
+        self.assertEqual(r.context['kpis']['total'], 3)
+
+    def test_inicio_depois_do_fim_mostra_erro(self):
+        self.entrar('ana')
+        r = self.client.get(reverse('dashboard'), {'inicio': '2026-02-01', 'fim': '2026-01-01'})
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.context['form'].errors)
+
+    def test_dashboard_vazio_nao_quebra(self):
+        org_c = Organizacao.objects.create(nome='Org C')
+        criar_usuario('cida', org_c, Perfil.ADMIN)
+        self.entrar('cida')
+        r = self.client.get(reverse('dashboard'))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.context['kpis']['total'], 0)
+        self.assertEqual(r.context['ranking'], [])
+        self.assertEqual(r.context['por_mes'], [])
+
+    def test_ranking_so_da_organizacao(self):
+        self.entrar('ana')
+        r = self.client.get(reverse('dashboard'))
+        self.assertEqual(
+            r.context['ranking'],
+            [{'projeto_id': self.projeto.pk, 'projeto__nome': 'Projeto Alfa',
+              'total': 1, 'pendentes': 0}])
+
+    def test_serie_mensal_soma_o_total(self):
+        self.entrar('ana')
+        r = self.client.get(reverse('dashboard'))
+        self.assertEqual(sum(m['total'] for m in r.context['por_mes']), 3)
+
+    def test_operador_nao_ve_serie_nem_exportacao(self):
+        self.entrar('otavio')
+        r = self.client.get(reverse('dashboard'))
+        self.assertEqual(r.status_code, 200)
+        self.assertIsNone(r.context.get('por_mes'))
+        self.assertFalse(r.context['pode_exportar'])
+
+    def test_sem_login_redireciona(self):
+        self.assertEqual(self.client.get(reverse('dashboard')).status_code, 302)
+
+    def test_usuario_sem_perfil_recebe_403(self):
+        User.objects.create_user('sem', password='senha12345')
+        self.entrar('sem')
+        self.assertEqual(self.client.get(reverse('dashboard')).status_code, 403)
+
+
+class ExportacaoCsvTests(DashboardBase):
+
+    def linhas(self, resposta):
+        texto = resposta.content.decode('utf-8-sig')
+        return list(csv.reader(io.StringIO(texto), delimiter=';'))
+
+    def test_operador_nao_exporta(self):
+        self.entrar('otavio')
+        self.assertEqual(self.client.get(reverse('exportar_csv')).status_code, 403)
+
+    def test_admin_exporta_so_a_propria_organizacao(self):
+        self.entrar('ana')
+        r = self.client.get(reverse('exportar_csv'))
+        self.assertEqual(r.status_code, 200)
+        self.assertIn('text/csv', r['Content-Type'])
+        titulos = [linha[0] for linha in self.linhas(r)[1:]]
+        self.assertEqual(sorted(titulos), ['A atrasada', 'A concluída', 'A no prazo'])
+
+    def test_celula_com_formula_e_neutralizada(self):
+        Tarefa.objects.create(user=self.ana, organizacao=self.org_a, titulo='=1+1')
+        self.entrar('ana')
+        titulos = [linha[0] for linha in self.linhas(self.client.get(reverse('exportar_csv')))]
+        self.assertIn("'=1+1", titulos)
+
+    def test_periodo_invalido_retorna_400(self):
+        self.entrar('ana')
+        r = self.client.get(reverse('exportar_csv'), {'inicio': 'abc'})
+        self.assertEqual(r.status_code, 400)
+
+
+class DashboardApiTests(DashboardBase):
+
+    def test_admin_recebe_metricas_da_organizacao(self):
+        self.entrar('ana')
+        r = self.client.get(reverse('api_dashboard'))
+        self.assertEqual(r.status_code, 200)
+        dados = r.json()
+        self.assertEqual(dados['kpis']['total'], 3)
+        self.assertIn('por_mes', dados)
+
+    def test_operador_nao_recebe_serie(self):
+        self.entrar('otavio')
+        dados = self.client.get(reverse('api_dashboard')).json()
+        self.assertEqual(dados['kpis']['total'], 3)
+        self.assertNotIn('por_mes', dados)
+
+    def test_periodo_invalido_retorna_400(self):
+        self.entrar('ana')
+        r = self.client.get(reverse('api_dashboard'), {'fim': 'abc'})
+        self.assertEqual(r.status_code, 400)
+
+    def test_sem_login_nao_acessa(self):
+        self.assertIn(self.client.get(reverse('api_dashboard')).status_code, (401, 403))
+
+
+class DesempenhoTests(DashboardBase):
+    """Trava o N+1: o número de consultas não pode crescer com os dados."""
+
+    def contar(self, url):
+        with CaptureQueriesContext(connection) as ctx:
+            r = self.client.get(url)
+        self.assertEqual(r.status_code, 200)
+        return len(ctx)
+
+    def adicionar_tarefas_encadeadas(self, quantidade):
+        anterior = Tarefa.objects.filter(organizacao=self.org_a, concluida=False).first()
+        for i in range(quantidade):
+            nova = Tarefa.objects.create(
+                user=self.ana, organizacao=self.org_a, titulo=f'Extra {i}',
+                projeto=self.projeto)
+            Dependencia.objects.create(
+                tarefa=nova, depende_de=anterior, organizacao=self.org_a)
+            anterior = nova
+
+    def test_home_nao_tem_n_mais_1(self):
+        self.entrar('ana')
+        antes = self.contar(reverse('home'))
+        self.adicionar_tarefas_encadeadas(10)
+        self.assertEqual(self.contar(reverse('home')), antes)
+
+    def test_exportacao_nao_tem_n_mais_1(self):
+        self.entrar('ana')
+        antes = self.contar(reverse('exportar_csv'))
+        self.adicionar_tarefas_encadeadas(10)
+        self.assertEqual(self.contar(reverse('exportar_csv')), antes)
