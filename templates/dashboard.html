@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard - {{ organizacao.nome }}{% endblock %}
+
+{% block content %}
+    <h1>Dashboard — {{ organizacao.nome }}</h1>
+
+    <form method="get" action="{% url 'dashboard' %}">
+        {{ form.inicio.label_tag }} {{ form.inicio }}
+        {{ form.fim.label_tag }} {{ form.fim }}
+        <button type="submit">Filtrar</button>
+        <a href="{% url 'dashboard' %}">Limpar</a>
+    </form>
+
+    {% if form.errors %}
+        <ul class="erros">
+            {% for campo, erros in form.errors.items %}{% for erro in erros %}
+                <li>{{ erro }}</li>
+            {% endfor %}{% endfor %}
+        </ul>
+    {% endif %}
+
+    <div class="cards">
+        <div class="card"><small>Tarefas</small><strong>{{ kpis.total }}</strong></div>
+        <div class="card"><small>Pendentes</small><strong>{{ kpis.pendentes }}</strong></div>
+        <div class="card"><small>Atrasadas</small><strong>{{ kpis.atrasadas }}</strong></div>
+        <div class="card"><small>Concluídas</small><strong>{{ kpis.concluidas }}</strong></div>
+        <div class="card"><small>Responsáveis ativos</small><strong>{{ kpis.responsaveis }}</strong></div>
+    </div>
+
+    <!-- GRAFICOS -->
+
+    <div class="painel">
+        <section>
+            <h3>Projetos com mais tarefas</h3>
+            <table class="ranking">
+                {% for item in ranking %}
+                    <tr>
+                        <td>{{ item.projeto__nome }}</td>
+                        <td>{{ item.total }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td>Sem dados no período.</td></tr>
+                {% endfor %}
+            </table>
+        </section>
+        <section>
+            <h3>Tarefas por situação</h3>
+            <table class="ranking">
+                {% for item in distribuicao %}
+                    <tr>
+                        <td>{{ item.status }}</td>
+                        <td>{{ item.total }}</td>
+                    </tr>
+                {% endfor %}
+            </table>
+        </section>
+    </div>
+{% endblock %}

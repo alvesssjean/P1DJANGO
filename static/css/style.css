@@ -21,3 +21,15 @@ padding: 15px;
 li { 
 list-style-type: square; 
 } 
+
+.cards { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+.card { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 12px 16px; min-width: 150px; }
+.card small { display: block; color: #666; }
+.card strong { font-size: 1.8rem; color: #005a9c; }
+.painel { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 16px; }
+.painel section { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 12px 16px; }
+.painel canvas { max-height: 260px; }
+table.ranking { width: 100%; border-collapse: collapse; }
+table.ranking td { padding: 6px 4px; border-bottom: 1px solid #eee; }
+table.ranking td:last-child { text-align: right; font-weight: bold; }
+.erros { color: #b00020; }

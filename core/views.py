@@ -7,7 +7,8 @@ from django.db import transaction
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_POST
 
-from .forms import TarefaForm, ProjetoForm, DependenciaForm
+from .dashboard import base_queryset, metricas
+from .forms import TarefaForm, ProjetoForm, DependenciaForm, PeriodoForm, filtrar_periodo
 from .models import Tarefa, Projeto, Organizacao, Perfil
 from .tenancy import org_atual
 
@@ -108,3 +109,18 @@ def register(request):
     else:
         form = UserCreationForm()
     return render(request, 'register.html', {'form': form})
+
+@login_required
+def dashboard(request):
+    org = org_atual(request)
+    eh_admin = request.user.perfil.eh_admin
+    form = PeriodoForm(request.GET)
+    base = filtrar_periodo(form, base_queryset(org))
+    contexto = {
+        'organizacao': org,
+        'form': form,
+        'mostra_series': eh_admin,   # operador vê versão parcial
+        'pode_exportar': eh_admin,
+        **metricas(base, incluir_series=eh_admin),
+    }
+    return render(request, 'dashboard.html', contexto)
