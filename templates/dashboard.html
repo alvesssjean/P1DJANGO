@@ -12,6 +12,10 @@
         <button type="submit">Filtrar</button>
         <a href="{% url 'dashboard' %}">Limpar</a>
     </form>
+    
+    {% if pode_exportar %}
+        <p><a href="{% url 'exportar_csv' %}?{{ request.GET.urlencode }}">Exportar CSV</a></p>
+    {% endif %}
 
     {% if form.errors %}
         <ul class="erros">

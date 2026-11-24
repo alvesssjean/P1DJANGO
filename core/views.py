@@ -6,11 +6,14 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_POST
-
-from .dashboard import base_queryset, metricas
 from .forms import TarefaForm, ProjetoForm, DependenciaForm, PeriodoForm, filtrar_periodo
 from .models import Tarefa, Projeto, Organizacao, Perfil
 from .tenancy import org_atual
+import csv
+from django.http import HttpResponse, HttpResponseBadRequest
+from django.utils import timezone
+from .dashboard import base_queryset, metricas, situacao
+from .permissoes import papel_requerido
 
 
 @login_required
@@ -124,3 +127,39 @@ def dashboard(request):
         **metricas(base, incluir_series=eh_admin),
     }
     return render(request, 'dashboard.html', contexto)
+
+def _celula_segura(valor):
+    """Evita injeção de fórmula: o Excel interpreta =, +, -, @ no início."""
+    texto = '' if valor is None else str(valor)
+    if texto.startswith(('=', '+', '-', '@', '\t', '\r')):
+        return "'" + texto
+    return texto
+
+
+@papel_requerido('admin')
+def exportar_csv(request):
+    org = org_atual(request)
+    form = PeriodoForm(request.GET)
+    if not form.is_valid():
+        return HttpResponseBadRequest('Período inválido.')
+    hoje = timezone.localdate()
+    qs = (
+        filtrar_periodo(form, base_queryset(org))
+        .select_related('projeto', 'user')
+        .order_by('-criada_em')
+    )
+    resp = HttpResponse(content_type='text/csv; charset=utf-8')
+    resp['Content-Disposition'] = 'attachment; filename="tarefas.csv"'
+    resp.write('\ufeff')  # BOM: o Excel abre os acentos corretamente
+    w = csv.writer(resp, delimiter=';')  # ';' é o separador do Excel em pt-BR
+    w.writerow(['Título', 'Projeto', 'Criada por', 'Criada em', 'Prazo', 'Situação'])
+    for t in qs:
+        w.writerow([
+            _celula_segura(t.titulo),
+            _celula_segura(t.projeto.nome if t.projeto else ''),
+            _celula_segura(t.user.username),
+            timezone.localtime(t.criada_em).strftime('%d/%m/%Y %H:%M'),
+            t.prazo.strftime('%d/%m/%Y') if t.prazo else '',
+            situacao(t, hoje),
+        ])
+    return resp
