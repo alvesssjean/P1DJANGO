@@ -102,7 +102,7 @@ def register(request):
             with transaction.atomic():
                 user = form.save()
                 org = Organizacao.objects.create(nome=f'Organização de {user.username}')
-                Perfil.objects.create(usuario=user, organizacao=org)
+                Perfil.objects.create(usuario=user, organizacao=org, papel=Perfil.ADMIN)
             login(request, user)
             return redirect('home')
     else:

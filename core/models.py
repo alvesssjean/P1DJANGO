@@ -19,10 +19,18 @@ class DaOrganizacao(models.Model):
     class Meta:
         abstract = True
 
-
 class Perfil(DaOrganizacao):
-    """Liga o usuário à organização (o papel entra na Aula 15)."""
+    """Liga o usuário à organização e define o papel dele nela."""
+    ADMIN = 'admin'
+    OPERADOR = 'operador'
+    PAPEIS = [(ADMIN, 'Administrador'), (OPERADOR, 'Operador')]
+
     usuario = models.OneToOneField(User, on_delete=models.CASCADE)
+    papel = models.CharField(max_length=10, choices=PAPEIS, default=OPERADOR)
+
+    @property
+    def eh_admin(self):
+        return self.papel == self.ADMIN
 
     def __str__(self):
         return f'{self.usuario.username} ({self.organizacao})'
