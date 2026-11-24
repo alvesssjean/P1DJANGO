@@ -13,4 +13,5 @@ urlpatterns = [
 
     path('dependencias/', api_views.DependenciaListCreate.as_view(), name='api_dependencias'),
     path('dependencias/<int:pk>/', api_views.DependenciaDetail.as_view(), name='api_dependencia_detalhe'),
+    path('dashboard/', api_views.DashboardApi.as_view(), name='api_dashboard'),
 ]

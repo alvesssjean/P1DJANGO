@@ -8,6 +8,12 @@ from .serializers import (
     SubtarefaSerializer, DependenciaSerializer,
 )
 from .tenancy import org_atual
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .dashboard import base_queryset, metricas
+from .forms import PeriodoForm, filtrar_periodo
 
 
 def _erro_drf(e):
@@ -99,3 +105,15 @@ class DependenciaDetail(generics.RetrieveDestroyAPIView):
 
     def get_queryset(self):
         return Dependencia.objects.filter(organizacao=org_atual(self.request))
+
+class DashboardApi(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        org = org_atual(request)
+        form = PeriodoForm(request.GET)
+        if not form.is_valid():
+            return Response(form.errors, status=400)
+        base = filtrar_periodo(form, base_queryset(org))
+        # Mesma regra da tela: série mensal só para administrador.
+        return Response(metricas(base, incluir_series=request.user.perfil.eh_admin))
