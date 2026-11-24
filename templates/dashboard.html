@@ -29,7 +29,28 @@
         <div class="card"><small>Responsáveis ativos</small><strong>{{ kpis.responsaveis }}</strong></div>
     </div>
 
-    <!-- GRAFICOS -->
+    <div class="painel">
+        {% if mostra_series %}
+            <section>
+                <h3>Tarefas criadas por mês</h3>
+                {% if por_mes %}
+                    {{ por_mes|json_script:"dados-mes" }}
+                    <canvas id="graf-mes"></canvas>
+                {% else %}
+                    <p>Sem dados no período.</p>
+                {% endif %}
+            </section>
+        {% endif %}
+        <section>
+            <h3>Situação das tarefas</h3>
+            {% if kpis.total %}
+                {{ distribuicao|json_script:"dados-status" }}
+                <canvas id="graf-status"></canvas>
+            {% else %}
+                <p>Sem dados no período.</p>
+            {% endif %}
+        </section>
+    </div>
 
     <div class="painel">
         <section>
@@ -57,4 +78,10 @@
             </table>
         </section>
     </div>
+{% endblock %}
+
+
+{% block scripts %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+    <script src="{% static 'js/dashboard.js' %}"></script>
 {% endblock %}
