@@ -138,3 +138,24 @@ Acesse no navegador:
 3. Cadastre uma `Dependência` informando que "Tarefa B" depende de "Tarefa A".
 4. Tente concluir "Tarefa B" antes de concluir "Tarefa A" — o sistema deve impedir a conclusão e exibir uma mensagem de erro.
 5. Conclua "Tarefa A" e tente novamente concluir "Tarefa B" — agora a conclusão deve ser permitida.
+
+## 📊 Dashboard (Aula 17)
+
+Acesse `/dashboard/`. Toda métrica parte de `Tarefa.objects.filter(organizacao=org)`
+e respeita o período (`?inicio=AAAA-MM-DD&fim=AAAA-MM-DD`, validado por `PeriodoForm`).
+
+| Pergunta do dono | Métrica | Onde |
+|---|---|---|
+| Quantas tarefas estão pendentes/atrasadas? | KPIs (`aggregate`) | `core/dashboard.py` |
+| Quais projetos concentram mais tarefas? | Ranking (`values` + `annotate`) | `core/dashboard.py` |
+| Como evolui a criação de tarefas? | Série mensal (`TruncMonth`) | `core/dashboard.py` |
+| Qual a proporção por situação? | Distribuição | `core/dashboard.py` |
+
+- Administrador: tudo, inclusive série mensal e exportação CSV (`/dashboard/exportar/`).
+- Operador: KPIs, ranking e situação.
+- API: `GET /api/dashboard/` (mesmas métricas e mesmo período).
+- Desempenho: `select_related`/`prefetch_related` na listagem e índice `(organizacao, criada_em)`;
+  testes `DesempenhoTests` travam o N+1.
+
+Conferência manual: com dois usuários de organizações diferentes, o total de cada
+cartão deve bater com a contagem feita à mão no `/admin/` (filtrando pela organização).
