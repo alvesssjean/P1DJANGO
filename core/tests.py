@@ -446,3 +446,27 @@ class DesempenhoTests(DashboardBase):
         antes = self.contar(reverse('exportar_csv'))
         self.adicionar_tarefas_encadeadas(10)
         self.assertEqual(self.contar(reverse('exportar_csv')), antes)
+
+class SuperusuarioTests(TestCase):
+
+    def setUp(self):
+        self.root = User.objects.create_superuser('root', 'root@exemplo.com', 'senha12345')
+        self.assertTrue(self.client.login(username='root', password='senha12345'))
+
+    def test_superusuario_sem_perfil_acessa_telas_e_ganha_perfil_admin(self):
+        self.assertEqual(self.client.get(reverse('home')).status_code, 200)
+        self.assertEqual(self.client.get(reverse('dashboard')).status_code, 200)
+        perfil = Perfil.objects.get(usuario=self.root)
+        self.assertEqual(perfil.papel, Perfil.ADMIN)
+        self.assertEqual(perfil.organizacao.nome, 'Organização padrão')
+
+    def test_perfil_nao_e_duplicado_em_acessos_seguintes(self):
+        self.client.get(reverse('home'))
+        self.client.get(reverse('home'))
+        self.assertEqual(Perfil.objects.filter(usuario=self.root).count(), 1)
+
+    def test_superusuario_nao_ve_dados_de_outra_organizacao(self):
+        org = Organizacao.objects.create(nome='Outra')
+        dona = criar_usuario('dona', org)
+        Tarefa.objects.create(user=dona, organizacao=org, titulo='Tarefa alheia')
+        self.assertNotContains(self.client.get(reverse('home')), 'Tarefa alheia')
